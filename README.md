@@ -1,4 +1,12 @@
-# The Project
+# Websockets Demo
+
+This is a project based off of a clean Fulcro lein template. Most of the README is stock
+information from there.
+
+The main difference is I've hand-coded a server in server.clj to support websockets.
+Then I changed the client to use the websockets.
+
+Nothing else is different (yet).
 
 The main project source is in `src/main`.
 
