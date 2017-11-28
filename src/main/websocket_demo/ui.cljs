@@ -135,7 +135,7 @@
                 (om/transact! this `[(api/login ~{:db/id (om/tempid) ::schema/name username}) :root/current-user :root/all-users]))]
     (bs/row {:className login-class}
       (bs/col {:sm 6 :sm-offset 3}
-        (bs/panel {:kind :success :ref (fn [r] (js/console.log :REF1 r))}
+        (bs/panel {:kind :success}
           (bs/panel-heading {}
             (bs/panel-title nil "Welcome to the Chat Application!"))
           (bs/panel-body {:className "form-horizontal"}
