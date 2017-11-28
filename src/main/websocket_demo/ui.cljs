@@ -80,17 +80,19 @@
   (ident [_ {:keys [db/id]}] [:CHAT-ROOM/BY-ID id])
   static css/CSS
   (local-rules [this] [[:.drop-parent {:position "relative"}]
+                       [:.overlay {:z-index 1 :position "relative"}]
                        [:.scrolling-messages {:overflow "scroll" :position "absolute" :width "100%" :top "50px" :bottom "40px"}]
                        [:.drop-footer {:position "absolute" :width "100%" :bottom "0"}]])
   (include-children [this] [])
   Object
+  (componentDidMount [this] (when-let [message-pane (.-message-pane this)] (set! (.-scrollTop message-pane) (.-scrollHeight message-pane))))
   (componentDidUpdate [this pprops pstate]
     ; scroll to bottom
     (when-let [message-pane (.-message-pane this)] (set! (.-scrollTop message-pane) (.-scrollHeight message-pane))))
   (render [this]
     (let [{:keys [ui/new-message root/current-user ::schema/chat-room-messages ::schema/chat-room-title active-user-panel]} (om/props this)
           {:keys [full-height]} (css/get-classnames Root)
-          {:keys [drop-parent drop-footer scrolling-messages]} (css/get-classnames ChatRoom)
+          {:keys [drop-parent drop-footer scrolling-messages overlay]} (css/get-classnames ChatRoom)
           sender-name  (::schema/name current-user)
           send-message (fn send-message []
                          (m/set-string! this :ui/new-message :value "")
@@ -100,8 +102,8 @@
           (ui-active-users active-user-panel))
         (bs/col {:sm 8}
           (bs/panel {:className (str drop-parent " " full-height)}
-            (bs/panel-heading {:kind :primary}
-              (bs/panel-title nil (dom/h4 #js {:className ""} chat-room-title)))
+            (bs/panel-heading {:kind :primary :className overlay}
+              (bs/panel-title {:className overlay} (dom/h4 nil chat-room-title)))
             (bs/panel-body {:className scrolling-messages
                             :ref       (fn set-message-pane-ref [r] (when r (set! (.-message-pane this) r)))}
               (map ui-message chat-room-messages))

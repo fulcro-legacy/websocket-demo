@@ -44,11 +44,10 @@
       chat-room)))
 
 (defn notify-others [ws-net sender-id verb edn]
-  (timbre/info "Asked to broadcast " verb edn)
+  (timbre/info "Broadcasting " verb edn)
   (let [clients        (:any @(:connected-cids ws-net))
         all-but-sender (disj clients sender-id)]
     (doseq [id all-but-sender]
-      (timbre/info verb " to: " id)
       (push ws-net id verb edn))))
 
 (s/fdef notify-others

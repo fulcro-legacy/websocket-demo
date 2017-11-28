@@ -57,7 +57,7 @@
                                                           :optimizations        :none
                                                           :output-dir           "resources/public/js/dev"
                                                           :output-to            "resources/public/js/websocket_demo.js"
-                                                          :preloads             [devtools.preload ]
+                                                          :preloads             [devtools.preload fulcro.inspect.preload]
                                                           :external-config      {:fulcro.inspect/config {:launch-keystroke "ctrl-f"}}
                                                           :source-map-timestamp true}}]}
 
