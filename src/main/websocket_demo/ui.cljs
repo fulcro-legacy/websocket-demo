@@ -58,9 +58,7 @@
   {:query [:db/id ::schema/message ::schema/name]
    :ident [:MESSAGE/BY-ID :db/id]}
   (bs/row nil
-    (bs/col {:sm 2}
-      (bs/label nil name))
-    (bs/col {:sm 10} message)))
+    (bs/col {:sm 12} (bs/label nil name) (str " " message))))
 
 (def ui-message (om/factory ChatRoomMessage {:keyfn :db/id}))
 
