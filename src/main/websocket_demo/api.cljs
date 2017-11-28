@@ -12,7 +12,8 @@
   [ident-list ident]
   (into [] (remove #(= ident %)) ident-list))
 
-;;; PUSH NOTIFICATIONS
+;;; PUSH NOTIFICATIONS. The websocket support defines this multimethod. We just hook into it. Incoming messages
+;; will have the format {:topic verb :msg edn-content}. The multimethod dispatches on topic.
 
 (defmethod wn/push-received :user-left-chat-room [{:keys [reconciler] :as app} {user-id :msg}]
   (when-not (int? user-id)
@@ -49,7 +50,7 @@
 
 (defmutation link-active-users
   "Mutation: When the chat room loads, the users in the room are not linked up to the active user UI. This function
-  hooks em up."
+  hooks em up as a post-mutation from the initial load in client.cljs."
   [params]
   (action [{:keys [state]}]
     ; The query can do the work, but the active users pane has to exist...
@@ -60,7 +61,7 @@
                        (assoc-in (conj chat-room-ident :active-user-panel) [:UI-ACTIVE-USERS :UI])))))))
 
 (defmutation login
-  "Mutation: Login in. Sets the current user, and joins the default channel."
+  "Mutation: Login in. Sets the current user, records us in the list of users, and lets the server know they're in."
   [{:keys [db/id] :as new-user}]
   (action [{:keys [state]}]
     (let [user-ident [:USER/BY-ID id]]
@@ -71,7 +72,8 @@
   (remote [env] true))
 
 (defmutation add-chat-message
-  "Mutation: Add a message to the current app state, and send it to the server. The server will push it to everyone else."
+  "Mutation: Add a message to the current app state, and sends it to the server. The server will broadcast it to everyone else.
+  :db/id in the message should be a tempid, which will be remapped by the server."
   [{:keys [db/id panel] :as message}]
   (action [{:keys [state]}]
     (when-not (s/valid? ::schema/chat-room-message message)

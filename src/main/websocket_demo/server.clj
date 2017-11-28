@@ -22,6 +22,8 @@
      :body    (io/file (io/resource "public/not-found.html"))}))
 
 (defn handler
+  "Ring middleward. Requires a config object because the web sockets support looks up config parameters like whitelisting in there.
+  Returns Ring middleware"
   [config]
   (let [wrap-websockets (fn [handler]
                           (fn [request]
@@ -41,21 +43,21 @@
       (wrap-root)
       (wrap-gzip))))
 
+; The web server component injects :handler, and expects it to have a :middleware key. This is how the components hook
+; middleware into the raw server component. If you used your own server code, you'd depend on this and pull out middleware...
 (defrecord Handler [config]
   component/Lifecycle
   (start [this]
     (assoc this :middleware (handler config)))
   (stop [this] nil))
 
-(defn system [port]
+(defn system []
   (component/system-map
-    :server (easy/make-web-server)
-    :channel-server (ws/simple-channel-server)
-    :channel-listener (api/make-channel-listener)
-    :config (server/new-config "config/dev.edn")
-    :handler (component/using (map->Handler {}) [:config])))
+    :server (easy/make-web-server)                          ; read the code...it is quite simple. Just expects injection of :config and :handler
+    :channel-server (ws/simple-channel-server)              ; the actual Sente component
+    :channel-listener (api/make-channel-listener)           ; A component that injects the channel server, and subscribes to traffic
+    :config (server/new-config "config/prod.edn")           ; the config
+    :handler (component/using (map->Handler {}) [:config]))) ; the middleware (injectable into server)
 
-(defn build-server
-  [{:keys [port]}]
-  (system port))
+(defn build-server [] (system))
 

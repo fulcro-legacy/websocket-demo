@@ -56,5 +56,5 @@
   (if @system
     (restart)
     (do
-      (reset! system (server/build-server 8080))
+      (reset! system (server/build-server))
       (swap! system component/start))))

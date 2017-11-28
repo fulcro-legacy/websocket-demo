@@ -5,6 +5,7 @@
     #?(:clj
     [clojure.future :refer :all])))
 
+; Schema for all of the data that lives in our database. Useful for documentation, consistency, and spec validation.
 (s/def :db/id (s/or :tmpid om/tempid? :realid number?))
 (s/def ::name string?)
 (s/def ::message string?)
