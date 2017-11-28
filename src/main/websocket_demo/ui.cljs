@@ -68,6 +68,7 @@
   (bs/row {}
     (bs/col {:sm 10}
       (dom/input #js {:type      "text" :value new-message :id "new-message" :placeholder "Message" :className "form-control"
+                      :ref       "new-message-input"
                       :onChange  #(m/set-string! component :ui/new-message :event %)
                       :onKeyDown (fn [evt] (when (evt/enter-key? evt) (send-message)))}))
     (bs/col {:sm 2} (bs/button {:kind :primary :onClick send-message} "Send!"))))
@@ -87,7 +88,9 @@
                        [:.drop-footer {:position "absolute" :width "100%" :bottom "0"}]])
   (include-children [this] [])
   Object
-  (componentDidMount [this] (when-let [message-pane (.-message-pane this)] (set! (.-scrollTop message-pane) (.-scrollHeight message-pane))))
+  (componentDidMount [this]
+    (when-let [message-pane (.-message-pane this)] (set! (.-scrollTop message-pane) (.-scrollHeight message-pane)))
+    (when-let [inp (om/react-ref this "new-message-input")] (.focus (js/ReactDOM.findDOMNode inp))))
   (componentDidUpdate [this pprops pstate]
     ; scroll to bottom
     (when-let [message-pane (.-message-pane this)] (set! (.-scrollTop message-pane) (.-scrollHeight message-pane))))
@@ -117,21 +120,23 @@
   {:query         [:ui/username :db/id]
    :initial-state {:db/id :UI :ui/username ""}
    :css           [[:.login-class {:margin-top "10em"}]]
-   :ident         [:LOGIN-FORM-UI :db/id]}
-  ;(componentDidMount [this] (when-let [inp (.-login-input this)] (.focus inp)))
+   :ident         [:LOGIN-FORM-UI :db/id]
+   :protocols     [Object
+                   (componentDidMount [this] (when-let [inp (om/react-ref this "login-input")]
+                                               (.focus (js/ReactDOM.findDOMNode inp))))]}
   (let [{:keys [login-class]} (css/get-classnames LoginForm)
         login (fn []
                 (m/set-string! this :ui/username :value "")
                 (om/transact! this `[(api/login ~{:db/id (om/tempid) ::schema/name username}) :root/current-user :root/all-users]))]
     (bs/row {:className login-class}
       (bs/col {:sm 6 :sm-offset 3}
-        (bs/panel {:kind :success}
+        (bs/panel {:kind :success :ref (fn [r] (js/console.log :REF1 r))}
           (bs/panel-heading {}
             (bs/panel-title nil "Welcome to the Chat Application!"))
           (bs/panel-body {:className "form-horizontal"}
             (bs/labeled-input {:id        "login" :type "text"
                                :value     username
-                               :ref       (fn [r] (set! (.-login-input this) r)) ; caches the real DOM element, for focus
+                               :ref       "login-input"     ; caches the real DOM element, for focus
                                :split     3
                                :onChange  #(m/set-string! this :ui/username :event %)
                                :onKeyDown (fn [evt] (when (evt/enter-key? evt) (login)))} "Who are you?")

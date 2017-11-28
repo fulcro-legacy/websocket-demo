@@ -1,10 +1,13 @@
 (ns user
   (:require
     [clojure.tools.namespace.repl :as tools-ns :refer [set-refresh-dirs]]
+    [taoensso.timbre :refer [set-level!]]
     [com.stuartsierra.component :as component]
     websocket-demo.api
     [figwheel-sidecar.system :as fig]
     [websocket-demo.server :as server]))
+
+(set-level! :info)
 
 ;;FIGWHEEL
 (def figwheel (atom nil))
@@ -36,7 +39,7 @@
 
 ;; ==================== SERVER ====================
 
-(set-refresh-dirs "src/cards" "src/dev" "src/main" "src/test")
+(set-refresh-dirs "src/dev" "src/main")
 
 (defonce system (atom nil))
 
