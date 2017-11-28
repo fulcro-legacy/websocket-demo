@@ -2,6 +2,7 @@
   (:require
     [clojure.tools.namespace.repl :as tools-ns :refer [set-refresh-dirs]]
     [com.stuartsierra.component :as component]
+    websocket-demo.api
     [figwheel-sidecar.system :as fig]
     [fulcro-spec.suite :as suite]
     [fulcro-spec.selectors :as sel]
@@ -56,12 +57,3 @@
     (do
       (reset! system (server/build-server 8080))
       (swap! system component/start))))
-
-; Run (start-server-tests) in a REPL to start a runner that can render results in a browser
-(suite/def-test-suite start-server-tests
-  {:config       {:port 8888}
-   :test-paths   ["src/test"]
-   :source-paths ["dev/server" "src/main"]}
-  {:available #{:focused :unit :integration}
-   :default   #{::sel/none :focused :unit}})
-

@@ -1,19 +1,10 @@
 (ns websocket-demo.server
   (:require
     [fulcro.easy-server :as easy]
-    ; MUST require these, or you won't get them installed.
-    [websocket-demo.api.read]
-    [websocket-demo.api.mutations]
+    ; MUST require this, or you won't get API handlers installed
+    [websocket-demo.api :as api]
     [fulcro.server :as server]
     [com.stuartsierra.component :as component]
-    [clojure.set :as set]
-    [clojure.spec.alpha :as s]
-    [clojure.java.io :as io]
-    [om.next.server :as om]
-    [taoensso.timbre :as timbre]
-    [fulcro.server :as server]
-    [bidi.bidi :as bidi]
-    [org.httpkit.server :refer [run-server]]
     [fulcro.websockets.components.channel-server :as ws]
     [ring.middleware.content-type :refer [wrap-content-type]]
     [ring.middleware.gzip :refer [wrap-gzip]]
@@ -21,7 +12,8 @@
     [ring.middleware.resource :refer [wrap-resource]]
     [ring.util.response :as rsp :refer [response file-response resource-response]]
     [ring.middleware.params :as params]
-    [ring.middleware.keyword-params :as keyword-params]))
+    [ring.middleware.keyword-params :as keyword-params]
+    [clojure.java.io :as io]))
 
 (defn not-found-handler []
   (fn [req]
@@ -57,12 +49,11 @@
   (component/system-map
     :server (easy/make-web-server)
     :websockets (ws/simple-channel-server)
+    :channel-listener (api/make-channel-listener)
     :config (server/new-config "config/dev.edn")
     :handler (component/using (map->Handler {}) [:config])))
 
 (defn build-server
   [{:keys [port]}]
   (system port))
-
-
 

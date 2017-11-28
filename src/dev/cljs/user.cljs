@@ -2,10 +2,8 @@
   (:require
     [fulcro.client.core :as fc]
     [om.next :as om]
-
-    [websocket-demo.client :as core]
-    [websocket-demo.ui.root :as root]
-
+    [websocket-demo.client :as client]
+    [websocket-demo.ui :as ui]
     [cljs.pprint :refer [pprint]]
     [fulcro.client.logging :as log]))
 
@@ -13,12 +11,14 @@
 
 (log/set-level :all)
 
+; User mode mount, to get the client on the app div of index.html. Defined as a function, because hot code reload calls it.
 (defn mount []
-  (reset! core/app (fc/mount @core/app root/Root "app")))
+  (reset! client/app (fc/mount @client/app ui/Root "app")))
 
+; This is the initial mount
 (mount)
 
-(defn app-state [] @(:reconciler @core/app))
+(defn app-state [] @(:reconciler @client/app))
 
 (defn log-app-state [& keywords]
   (pprint (let [app-state (app-state)]

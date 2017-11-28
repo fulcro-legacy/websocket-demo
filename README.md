@@ -1,14 +1,11 @@
 # Websockets Demo
 
-This is a project based off of a clean Fulcro lein template. Most of the README is stock
-information from there.
+A demo of Fulcro websockets. A very simple chat app.
 
-The main difference is I've hand-coded a server in server.clj to support websockets.
-Then I changed the client to use the websockets.
+## Layout
 
-Nothing else is different (yet).
-
-The main project source is in `src/main`.
+The main project source is in `src/main`. The source files have
+comments to help you understand the overall structure.
 
 ```
 ├── config                    server configuration files. See Fulcro docs.
@@ -16,19 +13,126 @@ The main project source is in `src/main`.
 │   ├── dev.edn
 │   └── prod.edn
 ├── websocket_demo
-│   ├── api
-│   │   ├── mutations.clj      server-side version of mutations
-│   │   ├── mutations.cljs     client-side version of mutations
-│   │   └── read.clj           server implementation of reads
-│   ├── client.cljs            client creation (shared among dev/prod)
-│   ├── client_main.cljs       production client main
-│   ├── server.clj             server creation (shared among dev/prod)
-│   ├── server_main.clj        production server main
-│   └── ui
-│       ├── components.cljc    a sample component
-│       └── root.cljc          the root UI
-└── translations
-    └── es.cljc                Spanish translations of strings on client UI
+    ├── api.clj                read/mutation/push handlers for client and server
+    ├── api.cljs
+    ├── client.cljs            client creation (shared among dev/prod)
+    ├── client_main.cljs       production client main
+    ├── server.clj             server creation (shared among dev/prod)
+    ├── server_main.clj        production server main
+    └── ui.cljs                client UI
+```
+
+# Websockets
+
+This is a demo chat-style app. Open this page in more than one tab/browser to see the result.
+
+Websockets act as an alternate networking mechanism for Fulcro apps. As such, they change nothing about how
+you write the majority of your application. Everything is still done with the same UI and mutation logic you've
+already been doing.
+
+Websockets ensure that each client has a persistent TCP connection to the server, and thus allow the server to push
+updates to the client. The client handles these via a predefined multimethod as described below.
+
+# Websockets Setup
+
+There are several steps for setting up Fulcro to use websockets as the primary mechanism for app communication:
+
+1. Set up the client to use websocket networking.
+2. Add websockets support to your server
+3. Add handlers to the client for receiving server push messages
+
+When you've done this all API and server push traffic will go over the same persistent TCP websocket connection.
+
+NOTE: You are allowed to install more than one networking handler, so it would be legal to have both a websocket
+and normal XhrIO-based remote. Doing so just means your queries and mutations would then target the remote of
+interest. However, it is not supported to have more than one websocket in a client.
+
+## Setting up the client
+
+To set up the client:
+
+- Create the networking object.
+- Add it to the network stack.
+- In started callback: install the push handlers.
+
+```
+(def cs-net (wn/make-channel-client \"/chsk\" :global-error-callback (constantly nil)))
+
+(fc/new-fulcro-client
+:networking cs-net
+:started-callback (fn [app] (wn/install-push-handlers cs-net app)))
+```
+
+The default route for establishing websockets is `/chsk`. The internals use Sente to provide the websockets.
+
+## Adding Server Support
+
+The server needs a couple of components and a hook for an extra route:
+
+```
+(core/make-fulcro-server
+; provides the URI on which you've configured the client to connect:
+:extra-routes {:routes   [" " {[\"/chsk\"] :web-socket}]
+               :handlers {:web-socket cs/route-handlers}}
+; Adds the components needed in order to establish and work with clients on persistent sockets
+:components {:channel-server   (cs/make-channel-server)
+             :channel-listener (wsdemo/make-channel-listener)}))
+```
+
+The channel listner is something you create: a component that is told when a client connects or drops. This will allow
+you to manage your own internal data structures that track your active users.
+
+Typically this will be a component that injects the channel server. This demo defines it as follows:
+
+```
+(defrecord ChannelListener [channel-server subscriptions]
+WSListener
+(client-dropped [this ws-net cid] ...)
+(client-added [this ws-net cid] ...)
+
+component/Lifecycle
+(start [component]
+  (let [component (assoc component
+                    :subscriptions (atom {}))]
+    (add-listener channel-server component)
+    component))
+(stop [component]
+  (remove-listener channel-server component)
+  (dissoc component :subscriptions :kill-chan)))
+
+(defn make-channel-listener []
+(component/using
+  (map->ChannelListener {})
+  [:channel-server]))
+```
+
+Note that the channel server is injected into the component and the `start`/`stop` methods use it to add/remove
+the component as a listener of connect/drop events. The `ws-net` parameter is the channel server which
+implements the WSNet protocol:
+
+```
+(defprotocol WSNet
+(add-listener [this ^WSListener listener] \"Add a `WSListener` listener\")
+(remove-listener [this ^WSListener listener] \"Remove a `WSListener` listener\")
+(push [this cid verb edn] \"Push from server\"))
+```
+
+and it is this push method that is most interesting to us. It allows the server to push messages to a specific user
+by client id (cid). The `verb` and `edn` parameters are what will arrive on the client.
+
+## Handling Push Messages
+
+Fulcro treats incoming push messages much like mutations, though on a different multimethod
+`fulcro.websockets.networking/push-received`. The parameters to this method are the fulcro `app` and the
+`message` (which contains the keywords `:topic` with the verb from the server and `:msg` with the EDN. The `:topic`
+is used as the dispatch key for the multimethod).
+
+So, a call on the server to `(push ws-net client-id :hello {:name \"Jo\"})` will result in a call on the client
+of `(push-received fulcro-app {:topic :hello :msg {:name \"Jo\"}})`.
+
+See Root in ui.cljs:
+
+```
 ```
 
 ## Development Mode
@@ -39,27 +143,13 @@ the build for production builds.
 Running all client builds:
 
 ```
-JVM_OPTS="-Ddev -Dtest -Dcards" lein run -m clojure.main script/figwheel.clj
+JVM_OPTS="-Ddev" lein run -m clojure.main script/figwheel.clj
 dev:cljs.user=> (log-app-state) ; show current state of app
 dev:cljs.user=> :cljs/quit      ; switch REPL to a different build
 ```
 
-Or use a plain REPL in IntelliJ with JVM options of `-Ddev -Dtest -Dcards` and parameters of
+Or use a plain REPL in IntelliJ with JVM options of `-Ddev` and parameters of
 `script/figwheel.clj`.
-
-For a faster hot code reload experience, run only the build that matters to you at the time,
-
-Running multiple builds in one figwheel can slow down hot code reload. You can also
-run multiple separate figwheel instances to leverage more of your CPU cores, and
-an additional system property can be used to allow this (by allocating different network ports
-to figwheel instances):
-
-```
-# Assuming one per terminal window...each gets a REPL that expects STDIN/STDOUT.
-JVM_OPTS="-Ddev -Dfigwheel.port=8081" lein run -m clojure.main script/figwheel.clj
-JVM_OPTS="-Dtest -Dfigwheel.port=8082" lein run -m clojure.main script/figwheel.clj
-JVM_OPTS="-Dcards -Dfigwheel.port=8083" lein run -m clojure.main script/figwheel.clj
-```
 
 Running the server:
 
@@ -73,91 +163,7 @@ user=> (restart) ; stop, reload server code, and go again
 user=> (tools-ns/refresh) ; retry code reload if hot server reload fails
 ```
 
-The URLs are:
-
-- Client (using server): [http://localhost:3000](http://localhost:3000)
-- Cards: [http://localhost:3449/cards.html](http://localhost:3449/cards.html)
-- Tests: See below.
-
-## Tests
-
-Tests are in `src/test`
-
-```
-src/test
-└── websocket_demo
-    ├── CI_runner.cljs            entry point for CI (doo) runner for client tests
-    ├── client_test_main.cljs     entry point for dev-mode client tests
-    ├── sample_spec.cljc          spec runnable by client and server. No "main" needed for server (clj) tests
-    └── tests_to_run.cljs         shared requires of all specs (used by CI and dev mode)
-```
-
-### Server tests:
-
-Interacting with tests resuts via a browser (also allows test focusing, etc):
-
-From a CLJ REPL:
-
-```
-user=> (start-server-tests) ; start a server on port 8888 showing the server tests
-```
-
-then navigate to [http://localhost:8888/fulcro-spec-server-tests.html](http://localhost:8888/fulcro-spec-server-tests.html)
-
-If you'd instead like to see them pop up over and over again in a terminal:
-
-```
-lein test-refresh
-```
-
-### Client Tests
-
-Run the figwheel build and include the `-Dtest` JVM option. The URL to run/view the
-tests will be
-[http://localhost:3449/fulcro-spec-client-tests.html](http://localhost:3449/fulcro-spec-client-tests.html)
-
-### CI Tests
-
-Use the Makefile target `tests`:
-
-```
-make tests
-```
-
-You must have `npm` and Chrome installed. See the documentation on `doo` for more information on
-using alternatives (phantom, firefox, etc).
-
-## Dev Cards
-
-The source is in `src/cards`.
-
-```
-JVM_OPTS="-Dcards" lein run -m clojure.main script/figwheel.clj
-```
-
-Or use a plain REPL in IntelliJ with JVM options of `-Dcards` and parameters of
-`script/figwheel.clj`.
-
-To add a new card namespace, remember to add a require for it to the `cards.cljs` file.
-
-## I18N
-
-The i18n process is codified into the Makefile as two targets. The first extracts strings from
-the source (which must build the js, and run xgettext on it, which you must
-have installed, perhaps from brew):
-
-```
-make i18n-extract
-```
-
-and gives you instructions on generating translations.
-
-The second takes the translations and generates a cljs namespace for
-them:
-
-```
-make i18n-generate
-```
+The URL is then [http://localhost:3000](http://localhost:3000)
 
 ## Standalone Runnable Jar (Production, with advanced optimized client js)
 
