@@ -5,7 +5,7 @@
 
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [org.clojure/clojurescript "1.9.946"]
-                 [fulcrologic/fulcro "1.2.1-SNAPSHOT"]
+                 [fulcrologic/fulcro "1.2.1"]
                  [fulcrologic/fulcro-css "1.0.0"]
                  [clojure-future-spec "1.9.0-beta4"]
 
