@@ -20,6 +20,7 @@
   :source-paths ["src/main"]
   :test-paths ["src/test"]
   :clean-targets ^{:protect false} ["target" "resources/public/js"]
+  :jvm-opts ["-XX:-OmitStackTraceInFastThrow" "-Xmx1024m" "-Xms512m"]
 
   ; Notes  on production build:
   ; - The hot code reload stuff in the dev profile WILL BREAK ADV COMPILATION. So, make sure you

@@ -12,8 +12,7 @@
 (log/set-level :all)
 
 ; User mode mount, to get the client on the app div of index.html. Defined as a function, because hot code reload calls it.
-(defn mount []
-  (reset! client/app (fc/mount @client/app ui/Root "app")))
+(defn mount [] (swap! client/app fc/mount ui/Root "app"))
 
 ; This is the initial mount
 (mount)

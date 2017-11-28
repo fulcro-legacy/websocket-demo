@@ -14,7 +14,7 @@
 
 ;;; PUSH NOTIFICATIONS
 
-(defmethod wn/push-received :user-left-chat-room [{:keys [reconciler] :as app} user-id]
+(defmethod wn/push-received :user-left-chat-room [{:keys [reconciler] :as app} {user-id :msg}]
   (when-not (int? user-id)
     (log/error "Invalid user ID left the room!" user-id))
   (let [state      (om/app-state reconciler)
@@ -24,7 +24,7 @@
                      (update ::schema/users remove-ident user-ident)
                      (update :user/by-id dissoc user-id))))))
 
-(defmethod wn/push-received :user-entered-chat-room [{:keys [reconciler] :as app} user]
+(defmethod wn/push-received :user-entered-chat-room [{:keys [reconciler] :as app} {user :msg}]
   (when-not (s/valid? ::schema/user user)
     (log/error "Invalid user entered chat room" user))
   (let [state         (om/app-state reconciler)
@@ -32,15 +32,16 @@
         user-ident    [:user/by-id (:db/id user)]]
     (swap! state fc/integrate-ident user-ident :append [::schema/users])))
 
-(defmethod wn/push-received :add-chat-message [{:keys [reconciler] :as app} {:keys [:db/id] :as message}]
+(defmethod wn/push-received :add-chat-message [{:keys [reconciler] :as app} {{id :db/id :as message} :msg}]
   (when-not (s/valid? ::schema/chat-room-message message)
     (log/error "Invalid message added to chat room" message))
-  (let [state         (om/app-state reconciler)
-        message-ident [:message/by-id id]]
+  (let [state           (om/app-state reconciler)
+        message-ident   [:message/by-id id]
+        chat-room-ident (::schema/chat-room @state)]
     (swap! state (fn [s]
                    (-> s
                      (assoc-in message-ident message)
-                     (fc/integrate-ident message-ident :append [::schema/chat-room ::schema/chat-room-message]))))))
+                     (fc/integrate-ident message-ident :append (conj chat-room-ident ::schema/chat-room-messages)))))))
 
 ;;; CLIENT MUTATIONS
 
@@ -51,20 +52,21 @@
     (let [user-ident [:user/by-id id]]
       (swap! state (fn [s] (-> s
                              (assoc-in user-ident new-user)
-                             (fc/integrate-ident user-ident :replace [:curent-user] :append [::schema/users])))))
+                             (fc/integrate-ident user-ident :replace [:root/current-user] :append [:root/all-users])))))
     {})
   (remote [env] true))
 
 (defmutation add-chat-message
   "Mutation: Add a message to the current app state, and send it to the server. The server will push it to everyone else."
-  [{:keys [db/id] :as message}]
+  [{:keys [db/id panel] :as message}]
   (action [{:keys [state]}]
-    (when-not (s/valid? ::chat-room-message message)
+    (when-not (s/valid? ::schema/chat-room-message message)
       (log/error "Attempt to add an invalid chat room message!"))
-    (let [state         state
-          message-ident [:message/by-id id]]
+    (let [state           state
+          message-ident   [:message/by-id id]
+          chat-room-ident (get @state ::schema/chat-room)]
       (swap! state (fn [s] (-> s
                              (assoc-in message-ident message)
-                             (fc/integrate-ident message-ident :append [::schema/chat-room ::schema/chat-room-messages])))))
+                             (fc/integrate-ident message-ident :append (conj chat-room-ident ::schema/chat-room-messages))))))
     {})
   (remote [env] true))

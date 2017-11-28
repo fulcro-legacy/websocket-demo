@@ -4,8 +4,6 @@
     [com.stuartsierra.component :as component]
     websocket-demo.api
     [figwheel-sidecar.system :as fig]
-    [fulcro-spec.suite :as suite]
-    [fulcro-spec.selectors :as sel]
     [websocket-demo.server :as server]))
 
 ;;FIGWHEEL
