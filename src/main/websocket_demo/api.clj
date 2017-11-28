@@ -16,17 +16,23 @@
                                    ::schema/chat-room-messages []
                                    ::schema/chat-room-title    "General Discussion"}}))
 
-(defn validate [spec thing]
+(defn validate
+  "Prints a log message if the spec for things doesn't work out."
+  [spec thing]
   (when-not (s/valid? spec thing)
     (timbre/error "Invalid " spec ":" thing)))
 
-(defn swap-db! [& args]
+(defn swap-db!
+  "Does a swap operation on the database, and then checks the validity. Logs an error if it is invalid. This is useful
+  for catching errors in our database updates when they accidentally invalidate the content."
+  [& args]
   (apply swap! db args)
   (when-not (s/valid? ::schema/database @db)
     (timbre/error "Database update invalid" (ex-info "" {}))))
 
 (def client-map
-  "A map from Sente UUID to logged-in user ID"
+  "A map from Sente UUID to logged-in user ID. Sente assigns each user a UUID, but it doesn't know who's who. When we get
+  a login mutation, we map that UUID to a simple numeric ID that we assign."
   (atom {}))
 
 (defquery-root ::schema/users
@@ -43,7 +49,9 @@
       (validate ::schema/chat-room chat-room)
       chat-room)))
 
-(defn notify-others [ws-net sender-id verb edn]
+(defn notify-others
+  "Send verb/edn to all clients *except* sender-id. In this case, sender-id is the UUID from Sente."
+  [ws-net sender-id verb edn]
   (timbre/info "Broadcasting " verb edn)
   (let [clients        (:any @(:connected-cids ws-net))
         all-but-sender (disj clients sender-id)]
@@ -78,7 +86,11 @@
 
 (defmutation login
   "Server mutation: Respond to a login request. Technically we've already got their web socket session, but we don't know
-  who they are. This associates a user with their websocket client ID."
+  who they are. This associates a user with their websocket client ID.
+
+  The incoming user will have a tempid for :db/id. We'll generate a numeric version of that, return it to the client
+  (for an automatic remap in state), and also remember it in our local client map of Sente websocket sessions.
+  "
   [{:keys [db/id] :as user}]
   (action [{:keys [cid ws-net]}]
     (validate ::schema/database @db)
@@ -93,7 +105,7 @@
       {:tempids {id real-id}})))
 
 (defn user-disconnected
-  "Called when websockets detects that a user has disconnected. We immediately remove them from the room"
+  "Called when websockets detects that a user has disconnected. We immediately remove them from the room. See ChannelListener."
   [ws-net sente-client-id]
   (when-let [real-id (get @client-map sente-client-id)]
     (timbre/info "User left " real-id)
