@@ -55,85 +55,69 @@ To set up the client:
 - Add it to the network stack.
 - In started callback: install the push handlers.
 
-```
-(def cs-net (wn/make-channel-client \"/chsk\" :global-error-callback (constantly nil)))
-
-(fc/new-fulcro-client
-:networking cs-net
-:started-callback (fn [app] (wn/install-push-handlers cs-net app)))
-```
+See `client.cljs`
 
 The default route for establishing websockets is `/chsk`. The internals use Sente to provide the websockets.
 
 ## Adding Server Support
 
-The server needs a couple of components and a hook for an extra route:
-
-```
-(core/make-fulcro-server
-; provides the URI on which you've configured the client to connect:
-:extra-routes {:routes   [" " {[\"/chsk\"] :web-socket}]
-               :handlers {:web-socket cs/route-handlers}}
-; Adds the components needed in order to establish and work with clients on persistent sockets
-:components {:channel-server   (cs/make-channel-server)
-             :channel-listener (wsdemo/make-channel-listener)}))
-```
-
-The channel listner is something you create: a component that is told when a client connects or drops. This will allow
-you to manage your own internal data structures that track your active users.
-
-Typically this will be a component that injects the channel server. This demo defines it as follows:
-
-```
-(defrecord ChannelListener [channel-server subscriptions]
-WSListener
-(client-dropped [this ws-net cid] ...)
-(client-added [this ws-net cid] ...)
-
-component/Lifecycle
-(start [component]
-  (let [component (assoc component
-                    :subscriptions (atom {}))]
-    (add-listener channel-server component)
-    component))
-(stop [component]
-  (remove-listener channel-server component)
-  (dissoc component :subscriptions :kill-chan)))
-
-(defn make-channel-listener []
-(component/using
-  (map->ChannelListener {})
-  [:channel-server]))
-```
+The channel server is a component that wraps Sente. It allows for channel listeners to register to listen for traffic.
+We do this in a ChannelListener component (see api.clj)
 
 Note that the channel server is injected into the component and the `start`/`stop` methods use it to add/remove
-the component as a listener of connect/drop events. The `ws-net` parameter is the channel server which
-implements the WSNet protocol:
+the component as a listener of connect/drop events.
+
+See `server.clj` and `api.clj`
+
+## Pushing Messages
+
+The parsing environment on the server will now have:
+
+- `cid` The Sente client ID (a string UUID)
+- `ws-net` The websockets networking support (which has a `push` method)
+
+it is this push method that is most interesting to us. It allows the server to push messages to a specific user
+by client id (cid).
 
 ```
-(defprotocol WSNet
-(add-listener [this ^WSListener listener] \"Add a `WSListener` listener\")
-(remove-listener [this ^WSListener listener] \"Remove a `WSListener` listener\")
-(push [this cid verb edn] \"Push from server\"))
+(fulcro.websockets.protocols/push ws-net cid VERB EDN)
 ```
 
-and it is this push method that is most interesting to us. It allows the server to push messages to a specific user
-by client id (cid). The `verb` and `edn` parameters are what will arrive on the client.
+The `VERB` and `EDN` parameters are what will arrive on the client as `:topic` and `:msg` in
+a multimethod.
+
+See `api.clj`. Specifically trace through `notify-others`. Be sure to read the comments around the `client-map`.
 
 ## Handling Push Messages
 
 Fulcro treats incoming push messages much like mutations, though on a different multimethod
-`fulcro.websockets.networking/push-received`. The parameters to this method are the fulcro `app` and the
+`fulcro.websockets.networking/push-received`. The parameters you'll receive are the fulcro `app` and the
 `message` (which contains the keywords `:topic` with the verb from the server and `:msg` with the EDN. The `:topic`
-is used as the dispatch key for the multimethod).
+is used as the dispatch key for the multimethod, so you rarely need to read it unless you override dispatch multiple topics to
+the some other common function).
 
 So, a call on the server to `(push ws-net client-id :hello {:name \"Jo\"})` will result in a call on the client
 of `(push-received fulcro-app {:topic :hello :msg {:name \"Jo\"}})`.
 
-See Root in ui.cljs:
+See `api.cljs`.
 
-```
-```
+## Other Thing In This Demo
+
+This demo is meant to be a bit of a show-piece for several things in Fulcro:
+
+1. Hand rolling a server with Ring.
+2. Using websockets with that server to handle API traffic.
+3. Websocket bidirection communication.
+4. React refs for input focus.
+5. Co-locating CSS on components.
+6. Using some of the bootstrap3 helpers.
+7. CTRL-F will pop open @wilkerlucio new inspector!
+8. Using Clojure Spec to protect your APIs from accidents…and inform you when you screw up.
+9. Associating a “login” with a websocket establish client.
+
+The UI is fully defined in `ui.cljs`.
+
+The source code is heavily commented.
 
 ## Development Mode
 

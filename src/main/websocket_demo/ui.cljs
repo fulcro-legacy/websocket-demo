@@ -19,11 +19,11 @@
 
 (defsc ^:once User [this {:keys [db/id ::schema/name]} {:keys [highlight?]} _]
   {:query [:db/id ::schema/name]
-   :css   [[:.user-label {:font-size "10pt"}]
+   :css   [[:.user-label {:font-size "10pt"}]               ; co-located CSS. This localizes the classnames to namespace/class.
            [:.user-row {:height "20pt"}]]
-   :ident [:USER/BY-ID :db/id]}
-  (let [{:keys [user-label user-row]} (css/get-classnames User)]
-    (bs/row {:className user-row}
+   :ident [:USER/BY-ID :db/id]}                             ; I'm using upper-case for table names to make them easier to spot in app state
+  (let [{:keys [user-label user-row]} (css/get-classnames User)] ; this translates from the long localized names back to a simple binding.
+    (bs/row {:className user-row}                           ; the bindings for the long class names are just strings
       (bs/col {:sm 12}
         (bs/label {:className user-label :kind (if highlight? :primary :default)}
           (bs/glyphicon {:size ".9em"} :user)
@@ -33,6 +33,8 @@
 
 (defui ^:once ActiveUsers
   static om/IQuery
+  ; this component only has link queries. Unfortunately , these won't work if there isn't *something* in app state for this component
+  ; In order to fix that, we have to have a post-mutation after we load the chat room (since this is embedded below the chat room)
   (query [this] [{[:root/current-user '_] (om/get-query User)}
                  {[:root/all-users '_] (om/get-query User)}])
   static om/Ident
@@ -66,7 +68,7 @@
   (bs/row {}
     (bs/col {:sm 10}
       (dom/input #js {:type      "text" :value new-message :id "new-message" :placeholder "Message" :className "form-control"
-                      :ref       "new-message-input"
+                      :ref       "new-message-input"        ; string ref can be looked up with om/react-ref. See lifecycle method in ChatRoom
                       :onChange  #(m/set-string! component :ui/new-message :event %)
                       :onKeyDown (fn [evt] (when (evt/enter-key? evt) (send-message)))}))
     (bs/col {:sm 2} (bs/button {:kind :primary :onClick send-message} "Send!"))))
@@ -84,13 +86,15 @@
                        [:.overlay {:z-index 1 :position "relative"}]
                        [:.scrolling-messages {:overflow "scroll" :position "absolute" :width "100%" :top "50px" :bottom "40px"}]
                        [:.drop-footer {:position "absolute" :width "100%" :bottom "0"}]])
-  (include-children [this] [])
+  (include-children [this] [User])
   Object
   (componentDidMount [this]
+    ; Make sure the messages are all the way scrolled. Using non-string refs here (which don't work with Om's input elements, but are fine on divs)
     (when-let [message-pane (.-message-pane this)] (set! (.-scrollTop message-pane) (.-scrollHeight message-pane)))
+    ; Make sure the input has focus
     (when-let [inp (om/react-ref this "new-message-input")] (.focus (js/ReactDOM.findDOMNode inp))))
   (componentDidUpdate [this pprops pstate]
-    ; scroll to bottom
+    ; scroll to bottom on each new message
     (when-let [message-pane (.-message-pane this)] (set! (.-scrollTop message-pane) (.-scrollHeight message-pane))))
   (render [this]
     (let [{:keys [ui/new-message root/current-user ::schema/chat-room-messages ::schema/chat-room-title active-user-panel]} (om/props this)
@@ -108,6 +112,7 @@
             (bs/panel-heading {:kind :primary :className overlay}
               (bs/panel-title {:className overlay} (dom/h4 nil chat-room-title)))
             (bs/panel-body {:className scrolling-messages
+                            ; recommended ref usage, but does not currently work on Om inputs
                             :ref       (fn set-message-pane-ref [r] (when r (set! (.-message-pane this) r)))}
               (map ui-message chat-room-messages))
             (bs/panel-footer {:className drop-footer} (new-message-control this send-message new-message sender-name))))))))
@@ -124,7 +129,9 @@
                                                (.focus (js/ReactDOM.findDOMNode inp))))]}
   (let [{:keys [login-class]} (css/get-classnames LoginForm)
         login (fn []
-                (m/set-string! this :ui/username :value "")
+                (m/set-string! this :ui/username :value "") ; clear the input
+                ; do local/remote login mutation. Note the tempid. This will get remapped to a normal ID on server return.
+                ; the keywords at the end cause refreshes of the UI that query for those bits
                 (om/transact! this `[(api/login ~{:db/id (om/tempid) ::schema/name username}) :root/current-user :root/all-users]))]
     (bs/row {:className login-class}
       (bs/col {:sm 6 :sm-offset 3}
@@ -135,7 +142,7 @@
             (bs/labeled-input {:id        "login" :type "text"
                                :value     username
                                :ref       "login-input"     ; caches the real DOM element, for focus
-                               :split     3
+                               :split     3                 ; Bootstrap split. 3/9 small columns
                                :onChange  #(m/set-string! this :ui/username :event %)
                                :onKeyDown (fn [evt] (when (evt/enter-key? evt) (login)))} "Who are you?")
             (bs/labeled-input {:id              "join"
@@ -156,7 +163,8 @@
                    {:root/current-user (om/get-query User)}
                    {::schema/chat-room (om/get-query ChatRoom)}]
    :css           [[:.full-height {:height "95vh" :margin-top "5px"}]]
-   :css-include   [LoginForm User ChatRoom]
+   ; these can really be composed from any components. If you want general composition, you'd compose them at each level to preserve refactoring and such.
+   :css-include   [LoginForm ChatRoom]
    :initial-state {:root/login-form {} :root/all-users [] ::schema/chat-room {}}}
   (dom/div nil
     (style-element Root)                                    ; embed the localized CSS rules here
