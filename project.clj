@@ -6,6 +6,7 @@
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [org.clojure/clojurescript "1.9.946"]
                  [fulcrologic/fulcro "1.2.1-SNAPSHOT"]
+                 [fulcrologic/fulcro-css "1.0.0"]
                  [clojure-future-spec "1.9.0-beta4"]
 
                  ; pinned versions
@@ -55,7 +56,7 @@
                                                           :optimizations        :none
                                                           :output-dir           "resources/public/js/dev"
                                                           :output-to            "resources/public/js/websocket_demo.js"
-                                                          :preloads             [devtools.preload fulcro.inspect.preload]
+                                                          :preloads             [devtools.preload ]
                                                           :external-config      {:fulcro.inspect/config {:launch-keystroke "ctrl-f"}}
                                                           :source-map-timestamp true}}]}
 

@@ -9,8 +9,5 @@
 
 (defonce app (atom (fc/new-fulcro-client
                      :networking cs-net
-                     :started-callback (fn [{:keys [reconciler] :as app}]
-                                         (wn/install-push-handlers cs-net app)
-                                         (df/load reconciler :app/channels ui/Channel {:refresh [:app/channels]})
-                                         (df/load reconciler :app/users ui/User {:refresh [:app/users]})))))
+                     :started-callback (fn [{:keys [reconciler] :as app}] (wn/install-push-handlers cs-net app)))))
 

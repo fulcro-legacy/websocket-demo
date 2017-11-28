@@ -2,100 +2,69 @@
   (:require [fulcro.client.mutations :as m :refer [defmutation]]
             [fulcro.websockets.networking :as wn]
             [om.next :as om]
-            [fulcro.client.core :as fc]))
-
-;;; PUSH MUTATIONS
+            [clojure.spec.alpha :as s]
+            [websocket-demo.schema :as schema]
+            [fulcro.client.core :as fc]
+            [fulcro.client.logging :as log]))
 
 (defn remove-ident
   "Removes the given ident from a list of idents. Returns a vector."
   [ident-list ident]
   (into [] (remove #(= ident %)) ident-list))
 
-(defmutation push-user-left
-  "Mutation to process a push notification from the server that indicates that the given user has left. See push-received."
-  [{:keys [user]}]
-  (action [{:keys [state]}]
-    (let [state         state
-          {:keys [db/id]} user
-          channel-ident (get @state :current-channel)
-          user-ident    [:user/by-id id]]
-      (swap! state (fn [s]
-                     (-> s
-                       (update :app/users remove-ident user-ident)
-                       (update :user/by-id dissoc id)
-                       (update-in (conj channel-ident :channel/users) remove-ident user-ident)))))))
+;;; PUSH NOTIFICATIONS
 
-(defmutation push-user-new
-  "Mutation to process when the server sends a push notification about a new user. See push-received."
-  [{:keys [user]}]
-  (action [{:keys [state] :as env}]
-    (let [channel-ident (get @state :current-channel)
-          user-ident    [:user/by-id (:db/id user)]]
-      (swap! state (fn [s] (-> s
-                             (fc/integrate-ident user-ident :append [:app/users])
-                             (fc/integrate-ident user-ident :append (conj channel-ident :channel/users))))))))
+(defmethod wn/push-received :user-left-chat-room [{:keys [reconciler] :as app} user-id]
+  (when-not (int? user-id)
+    (log/error "Invalid user ID left the room!" user-id))
+  (let [state      (om/app-state reconciler)
+        user-ident [:user/by-id user-id]]
+    (swap! state (fn [s]
+                   (-> s
+                     (update ::schema/users remove-ident user-ident)
+                     (update :user/by-id dissoc user-id))))))
 
-(defmutation push-message-new
-  "Mutation to process when the server sends a push notification about a new message. See push-received."
-  [{:keys [message]}]
-  (action [{:keys [state] :as env}]
-    (let [channel-ident (get @state :current-channel)
-          message-ident [:message/by-id (:db/id message)]]
-      (swap! state (fn [s] (-> s
-                             (assoc-in message-ident message)
-                             (fc/integrate-ident message-ident :append (conj channel-ident :channel/messages))))))))
+(defmethod wn/push-received :user-entered-chat-room [{:keys [reconciler] :as app} user]
+  (when-not (s/valid? ::schema/user user)
+    (log/error "Invalid user entered chat room" user))
+  (let [state         (om/app-state reconciler)
+        channel-ident (get @state :current-channel)
+        user-ident    [:user/by-id (:db/id user)]]
+    (swap! state fc/integrate-ident user-ident :append [::schema/users])))
 
-; register to receive the push notifications we care about
-(defmethod wn/push-received :user/left [{:keys [reconciler] :as app} {:keys [msg]}]
-  (om/transact! reconciler `[(push-user-left ~{:user msg})]))
-
-(defmethod wn/push-received :user/new [{:keys [reconciler] :as app} {:keys [msg]}]
-  (om/transact! reconciler `[(push-user-new ~{:user msg})]))
-
-(defmethod wn/push-received :message/new [{:keys [reconciler] :as app} {:keys [msg]}]
-  (om/transact! reconciler `[(push-message-new ~{:message msg})]))
+(defmethod wn/push-received :add-chat-message [{:keys [reconciler] :as app} {:keys [:db/id] :as message}]
+  (when-not (s/valid? ::schema/chat-room-message message)
+    (log/error "Invalid message added to chat room" message))
+  (let [state         (om/app-state reconciler)
+        message-ident [:message/by-id id]]
+    (swap! state (fn [s]
+                   (-> s
+                     (assoc-in message-ident message)
+                     (fc/integrate-ident message-ident :append [::schema/chat-room ::schema/chat-room-message]))))))
 
 ;;; CLIENT MUTATIONS
-
-(defmutation channel-set [params]
-  (action [{:keys [state ast] :as env}]
-    (swap! state assoc :current-channel params)))
 
 (defmutation login
   "Mutation: Login in. Sets the current user, and joins the default channel."
   [{:keys [db/id] :as new-user}]
   (action [{:keys [state]}]
-    (let [state         state
-          user-ident    [:user/by-id id]
-          channel-ident (first (-> @state :app/channels))
-          channel-id    (second channel-ident)]
+    (let [user-ident [:user/by-id id]]
       (swap! state (fn [s] (-> s
-                             (assoc-in user-ident new-user) ; add the user to our db
-                             (assoc :current-channel channel-ident
-                                    :current-user user-ident)
-                             (fc/integrate-ident user-ident :append [:app/users])
-                             (fc/integrate-ident user-ident :append [:channel/by-id channel-id :channel/users]))))
-      )
+                             (assoc-in user-ident new-user)
+                             (fc/integrate-ident user-ident :replace [:curent-user] :append [::schema/users])))))
     {})
   (remote [env] true))
 
 (defmutation add-chat-message
   "Mutation: Add a message to the current app state, and send it to the server. The server will push it to everyone else."
-  [{:keys [db/id] :as new-message}]
+  [{:keys [db/id] :as message}]
   (action [{:keys [state]}]
+    (when-not (s/valid? ::chat-room-message message)
+      (log/error "Attempt to add an invalid chat room message!"))
     (let [state         state
-          channel-id    (get @state :current-channel)
           message-ident [:message/by-id id]]
       (swap! state (fn [s] (-> s
-                             (assoc-in message-ident new-message) ; add the message to our tables
-                             (fc/integrate-ident message-ident :append [:app/channels channel-id :channel/messages])))))
+                             (assoc-in message-ident message)
+                             (fc/integrate-ident message-ident :append [::schema/chat-room ::schema/chat-room-messages])))))
     {})
-  (remote [{:keys [ast state]}]
-    (let [channel (get @state :current-channel)]
-      (update ast :params assoc :channel channel))))
-
-(defmutation change-channels [_]
-  (action [env] "Not implemented")
-  (remote [env] false))
-
-
+  (remote [env] true))

@@ -6,11 +6,11 @@
             [websocket-demo.schema :as schema]
             [fulcro.websockets.protocols :refer [WSListener client-dropped client-added add-listener remove-listener push]]
             [clojure.spec.alpha :as s]
+            [clojure.future :refer :all]
             [om.next :as om]))
 
 (def db
   (atom {::schema/users           []
-         ::schema/next-user-id    1
          ::schema/next-message-id 1
          ::schema/chat-room       {:db/id                      1
                                    ::schema/chat-room-messages []
@@ -19,12 +19,18 @@
 (defquery-root ::schema/users
   "Retrieve all of the current users."
   (value [env params]
-    (::schema/users @db)))
+    (let [users (::schema/users @db)]
+      (when-not (s/valid? ::schema/users users)
+        (timbre/error "Users are not valid!" users))
+      users)))
 
 (defquery-root ::schema/chat-room
   "Retrieve the chat room (with the current messages)."
   (value [env params]
-    (::schema/chat-room @db)))
+    (let [chat-room (::schema/chat-room @db)]
+      (when-not (s/valid? ::schema/chat-room chat-room)
+        (timbre/error "Chat room is invalid!" chat-room))
+      chat-room)))
 
 (defn notify-others [ws-net sender-id verb edn]
   (timbre/info "Asked to broadcast " verb edn)
@@ -33,6 +39,10 @@
     (doseq [id all-but-sender]
       (timbre/info verb " to: " id)
       (push ws-net id verb edn))))
+
+(s/fdef notify-others
+  :args (s/cat :net any? :sender-id int? :verb ::schema/push-verb :message ::schema/push-message)
+  :ret any?)
 
 (defmutation add-chat-message
   "Process a new message from a client. We remap the incoming tempid to a real one that we generate on the server. Only
@@ -71,7 +81,7 @@
   [ws-net user-id]
   (timbre/info "User left " user-id)
   (swap! db update ::schema/users (fn [users] (vec (filter #(not= user-id (:db/id %)) users))))
-  (notify-others ws-net user-id :user-left-chat-room {:db/id user-id}))
+  (notify-others ws-net user-id :user-left-chat-room user-id))
 
 ; The channel server gets the websocket events (add/drop). It can send those to any number of channel listeners. This
 ; is ours. By making it depend on the channel-server, we can hook in when it starts.

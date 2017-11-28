@@ -48,7 +48,7 @@
 (defn system [port]
   (component/system-map
     :server (easy/make-web-server)
-    :websockets (ws/simple-channel-server)
+    :channel-server (ws/simple-channel-server)
     :channel-listener (api/make-channel-listener)
     :config (server/new-config "config/dev.edn")
     :handler (component/using (map->Handler {}) [:config])))
