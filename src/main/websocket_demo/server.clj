@@ -27,7 +27,8 @@
                           (fn [request]
                             (if (= "/chsk" (:uri request))
                               (ws/route-handlers {:config config :request request} {})
-                              (handler request))))]
+                              (handler request))))
+        wrap-root       (fn [handler] (fn [req] (handler (update req :uri #(if (= "/" %) "/index.html" %)))))]
     (-> (not-found-handler)
       (wrap-websockets)
       (server/wrap-transit-params)
@@ -37,6 +38,7 @@
       (wrap-resource "public")
       (wrap-content-type)
       (wrap-not-modified)
+      (wrap-root)
       (wrap-gzip))))
 
 (defrecord Handler [config]
