@@ -5,6 +5,7 @@
             [fulcro.client.data-fetch :as df]
             [websocket-demo.ui :as ui]
             [websocket-demo.schema :as schema]
+            [websocket-demo.api :as api]
             [fulcro.client.logging :as log]))
 
 (defonce cs-net (wn/make-channel-client "/chsk" :global-error-callback (constantly nil)))
@@ -15,5 +16,5 @@
                                          (log/info "Installing push handlers")
                                          (wn/install-push-handlers cs-net app)
                                          (df/load app ::schema/users ui/User {:target [:root/all-users]})
-                                         (df/load app ::schema/chat-room ui/ChatRoom)))))
+                                         (df/load app ::schema/chat-room ui/ChatRoom {:post-mutation `api/link-active-users})))))
 

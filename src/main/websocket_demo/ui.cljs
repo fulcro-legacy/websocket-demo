@@ -12,18 +12,22 @@
     [fulcro-css.css :as css]
     [fulcro.events :as evt]
     [garden.core :as g]
+    [fulcro.ui.html-entities :as entities]
     [fulcro.client.logging :as log]))
 
 (declare Root)                                              ; so we can pull CSS classnames from the localized root css
 
 (defsc ^:once User [this {:keys [db/id ::schema/name]} {:keys [highlight?]} _]
   {:query [:db/id ::schema/name]
+   :css   [[:.user-label {:font-size "10pt"}]
+           [:.user-row {:height "20pt"}]]
    :ident [:USER/BY-ID :db/id]}
-  (bs/row nil
-    (bs/col {:sm 2}
-      (bs/label {:kind (if highlight? :primary :default)}
-        (bs/glyphicon nil :user)))
-    (bs/col {:sm 10} name)))
+  (let [{:keys [user-label user-row]} (css/get-classnames User)]
+    (bs/row {:className user-row}
+      (bs/col {:sm 12}
+        (bs/label {:className user-label :kind (if highlight? :primary :default)}
+          (bs/glyphicon {:size ".9em"} :user)
+          (str " " name))))))
 
 (def ui-user (om/factory User {:keyfn :db/id}))
 
@@ -40,7 +44,7 @@
     (let [{:keys [root/current-user root/all-users]} (om/props this)
           {:keys [full-height]} (css/get-classnames Root)
           ; this component will short-circuit rendering unless the list of users has changed, so this is ok to do here...
-          all-users (sort-by ::name all-users)]
+          all-users (sort-by ::schema/name all-users)]
       (bs/panel {:className full-height}
         (bs/panel-heading nil
           (bs/panel-title nil "Active Users"))
@@ -70,10 +74,8 @@
 
 (defui ^:once ChatRoom
   static om/IQuery
-  (query [_] [:db/id
-              :ui/new-message
+  (query [_] [:db/id :ui/new-message ::schema/chat-room-title
               {::schema/chat-room-messages (om/get-query ChatRoomMessage)}
-              ::schema/chat-room-title
               {[:root/current-user '_] (om/get-query User)}
               {:active-user-panel (om/get-query ActiveUsers)}])
   static om/Ident
@@ -150,11 +152,11 @@
                    {:root/login-form (om/get-query LoginForm)}
                    {:root/current-user (om/get-query User)}
                    {::schema/chat-room (om/get-query ChatRoom)}]
-   :css           [[:.full-height {:height "100vh"}]]
-   :css-include   [LoginForm ActiveUsers ChatRoom]
+   :css           [[:.full-height {:height "95vh" :margin-top "5px"}]]
+   :css-include   [LoginForm User ChatRoom]
    :initial-state {:root/login-form {} :root/all-users [] ::schema/chat-room {}}}
   (dom/div nil
-    (style-element Root)
+    (style-element Root)                                    ; embed the localized CSS rules here
     (dom/div #js {:key react-key :className "container-fluid"}
       (if (empty? current-user)
         (ui-login-form login-form)
