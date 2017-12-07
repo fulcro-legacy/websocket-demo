@@ -1,6 +1,5 @@
 (ns websocket-demo.client
-  (:require [om.next :as om]
-            [fulcro.client.core :as fc]
+  (:require [fulcro.client :as fc]
             [fulcro.websockets.networking :as wn]
             [fulcro.client.data-fetch :as df]
             [websocket-demo.ui :as ui]

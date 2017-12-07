@@ -1,7 +1,7 @@
 (ns cljs.user
   (:require
-    [fulcro.client.core :as fc]
-    [om.next :as om]
+    [fulcro.client :as fc]
+    [fulcro.client.primitives :as om]
     [websocket-demo.client :as client]
     [websocket-demo.ui :as ui]
     [cljs.pprint :refer [pprint]]

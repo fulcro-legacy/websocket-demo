@@ -1,7 +1,7 @@
 (ns websocket-demo.schema
   (:require
     [clojure.spec.alpha :as s]
-    [om.next :as om]
+    [fulcro.client.primitives :as om]
     #?(:clj
     [clojure.future :refer :all])))
 

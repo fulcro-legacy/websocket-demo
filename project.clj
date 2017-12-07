@@ -3,11 +3,10 @@
   :license {:name "MIT" :url "https://opensource.org/licenses/MIT"}
   :min-lein-version "2.7.0"
 
-  :dependencies [[org.clojure/clojure "1.8.0"]
+  :dependencies [[org.clojure/clojure "1.9.0-RC2"]
                  [org.clojure/clojurescript "1.9.946"]
-                 [fulcrologic/fulcro "1.2.1"]
-                 [fulcrologic/fulcro-css "1.0.0"]
-                 [clojure-future-spec "1.9.0-beta4"]
+                 [fulcrologic/fulcro "2.0.0-beta5"]
+                 [fulcrologic/fulcro-css "2.0.0-beta1"]
 
                  ; pinned versions
                  [com.taoensso/sente "1.11.0"]
@@ -64,12 +63,12 @@
                           :plugins      [[lein-cljsbuild "1.1.7"]]
 
                           :dependencies [[binaryage/devtools "0.9.4"]
-                                         [fulcrologic/fulcro-inspect "0.1.0-SNAPSHOT"]
+                                         [fulcrologic/fulcro-inspect "0.2.0-SNAPSHOT"]
                                          [org.clojure/tools.namespace "0.3.0-alpha4"]
                                          [org.clojure/tools.nrepl "0.2.13"]
                                          [com.cemerick/piggieback "0.2.2"]
                                          [lein-doo "0.1.7" :scope "test"]
                                          [figwheel-sidecar "0.5.13" :exclusions [org.clojure/tools.reader]]
-                                         [devcards "0.2.3" :exclusions [cljsjs/react cljsjs/react-dom]]]
+                                         [devcards "0.2.4" :exclusions [cljsjs/react cljsjs/react-dom]]]
                           :repl-options {:init-ns          user
                                          :nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}}})

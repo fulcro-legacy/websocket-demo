@@ -6,7 +6,7 @@
             [fulcro.websockets.protocols :refer [WSListener client-dropped client-added add-listener remove-listener push]]
             [clojure.spec.alpha :as s]
             [clojure.future :refer :all]
-            [om.next :as om]))
+            [fulcro.client.primitives :as prim]))
 
 (def db
   (atom {::schema/users           []

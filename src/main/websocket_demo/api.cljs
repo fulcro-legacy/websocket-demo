@@ -1,10 +1,10 @@
 (ns websocket-demo.api
   (:require [fulcro.client.mutations :as m :refer [defmutation]]
             [fulcro.websockets.networking :as wn]
-            [om.next :as om]
+            [fulcro.client.primitives :as prim]
             [clojure.spec.alpha :as s]
             [websocket-demo.schema :as schema]
-            [fulcro.client.core :as fc]
+            [fulcro.client :as fc]
             [fulcro.client.logging :as log]))
 
 (defn remove-ident
@@ -18,7 +18,7 @@
 (defmethod wn/push-received :user-left-chat-room [{:keys [reconciler] :as app} {user-id :msg}]
   (when-not (int? user-id)
     (log/error "Invalid user ID left the room!" user-id))
-  (let [state      (om/app-state reconciler)
+  (let [state      (prim/app-state reconciler)
         user-ident [:USER/BY-ID user-id]]
     (swap! state (fn [s]
                    (-> s
@@ -28,7 +28,7 @@
 (defmethod wn/push-received :user-entered-chat-room [{:keys [reconciler] :as app} {user :msg}]
   (when-not (s/valid? ::schema/user user)
     (log/error "Invalid user entered chat room" user))
-  (let [state         (om/app-state reconciler)
+  (let [state         (prim/app-state reconciler)
         channel-ident (get @state :current-channel)
         user-ident    [:USER/BY-ID (:db/id user)]]
     (swap! state (fn [s] (-> s
@@ -38,7 +38,7 @@
 (defmethod wn/push-received :add-chat-message [{:keys [reconciler] :as app} {{id :db/id :as message} :msg}]
   (when-not (s/valid? ::schema/chat-room-message message)
     (log/error "Invalid message added to chat room" message))
-  (let [state           (om/app-state reconciler)
+  (let [state           (prim/app-state reconciler)
         message-ident   [:MESSAGE/BY-ID id]
         chat-room-ident (::schema/chat-room @state)]
     (swap! state (fn [s]
