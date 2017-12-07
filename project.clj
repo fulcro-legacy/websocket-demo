@@ -56,14 +56,14 @@
                                                           :optimizations        :none
                                                           :output-dir           "resources/public/js/dev"
                                                           :output-to            "resources/public/js/websocket_demo.js"
-                                                          :preloads             [devtools.preload fulcro.inspect.preload]
+                                                          :preloads             [devtools.preload #_fulcro.inspect.preload]
                                                           :external-config      {:fulcro.inspect/config {:launch-keystroke "ctrl-f"}}
                                                           :source-map-timestamp true}}]}
 
                           :plugins      [[lein-cljsbuild "1.1.7"]]
 
                           :dependencies [[binaryage/devtools "0.9.4"]
-                                         [fulcrologic/fulcro-inspect "0.2.0-SNAPSHOT"]
+                                         ;[fulcrologic/fulcro-inspect "0.2.0-SNAPSHOT"]
                                          [org.clojure/tools.namespace "0.3.0-alpha4"]
                                          [org.clojure/tools.nrepl "0.2.13"]
                                          [com.cemerick/piggieback "0.2.2"]
