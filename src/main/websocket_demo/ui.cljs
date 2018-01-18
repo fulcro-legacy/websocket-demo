@@ -59,7 +59,7 @@
 (defn new-message-control [component send-message new-message sender-name]
   (bs/row {}
     (bs/col {:sm 10}
-      (dom/input #js {:type      "text" :value new-message :id "new-message" :placeholder "Message" :className "form-control"
+      (dom/input #js {:type      "text" :value (or new-message "") :id "new-message" :placeholder "Message" :className "form-control"
                       :ref       "new-message-input"        ; string ref can be looked up with om/react-ref. See lifecycle method in ChatRoom
                       :onChange  #(m/set-string! component :ui/new-message :event %)
                       :onKeyDown (fn [evt] (when (evt/enter-key? evt) (send-message)))}))
