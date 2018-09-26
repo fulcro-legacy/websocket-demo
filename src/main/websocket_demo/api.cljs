@@ -12,41 +12,45 @@
   [ident-list ident]
   (into [] (remove #(= ident %)) ident-list))
 
+(defonce reconciler (atom nil))
+
 ;;; PUSH NOTIFICATIONS. Incoming messages ;; will have the format {:topic verb :msg edn-content}.
 (defmulti push-received
   "Multimethod to handle push events"
-  (fn [app msg] (:topic msg)))
+  (fn [{:keys [topic msg]}]
+    (js/console.log :TOPIC topic)
+    topic))
 
-(defmethod push-received :user-left-chat-room [{:keys [reconciler] :as app} {user-id :msg}]
+(defmethod push-received :user-left-chat-room [{user-id :msg}]
   (when-not (int? user-id)
     (log/error "Invalid user ID left the room!" user-id))
-  (let [state      (prim/app-state reconciler)
+  (let [state      (prim/app-state @reconciler)
         user-ident [:USER/BY-ID user-id]]
     (swap! state (fn [s]
                    (-> s
                      (update :root/all-users remove-ident user-ident)
                      (update :USER/BY-ID dissoc user-id))))))
 
-(defmethod push-received :user-entered-chat-room [{:keys [reconciler] :as app} {user :msg}]
+(defmethod push-received :user-entered-chat-room [{user :msg}]
   (when-not (s/valid? ::schema/user user)
     (log/error "Invalid user entered chat room" user))
-  (let [state         (prim/app-state reconciler)
+  (let [state         (prim/app-state @reconciler)
         channel-ident (get @state :current-channel)
         user-ident    [:USER/BY-ID (:db/id user)]]
     (swap! state (fn [s] (-> s
                            (assoc-in user-ident user)
-                           (fc/integrate-ident user-ident :append [:root/all-users]))))))
+                           (m/integrate-ident* user-ident :append [:root/all-users]))))))
 
-(defmethod wn/push-received :add-chat-message [{:keys [reconciler] :as app} {{id :db/id :as message} :msg}]
+(defmethod push-received :add-chat-message [{{id :db/id :as message} :msg}]
   (when-not (s/valid? ::schema/chat-room-message message)
     (log/error "Invalid message added to chat room" message))
-  (let [state           (prim/app-state reconciler)
+  (let [state           (prim/app-state @reconciler)
         message-ident   [:MESSAGE/BY-ID id]
         chat-room-ident (::schema/chat-room @state)]
     (swap! state (fn [s]
                    (-> s
                      (assoc-in message-ident message)
-                     (fc/integrate-ident message-ident :append (conj chat-room-ident ::schema/chat-room-messages)))))))
+                     (m/integrate-ident* message-ident :append (conj chat-room-ident ::schema/chat-room-messages)))))))
 
 ;;; CLIENT MUTATIONS
 
@@ -69,7 +73,7 @@
     (let [user-ident [:USER/BY-ID id]]
       (swap! state (fn [s] (-> s
                              (assoc-in user-ident new-user)
-                             (fc/integrate-ident user-ident :replace [:root/current-user] :append [:root/all-users])))))
+                             (m/integrate-ident* user-ident :replace [:root/current-user] :append [:root/all-users])))))
     {})
   (remote [env] true))
 
@@ -85,6 +89,6 @@
           chat-room-ident (get @state ::schema/chat-room)]
       (swap! state (fn [s] (-> s
                              (assoc-in message-ident message)
-                             (fc/integrate-ident message-ident :append (conj chat-room-ident ::schema/chat-room-messages))))))
+                             (m/integrate-ident* message-ident :append (conj chat-room-ident ::schema/chat-room-messages))))))
     {})
   (remote [env] true))

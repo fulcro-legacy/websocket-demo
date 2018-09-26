@@ -53,7 +53,8 @@
   "Send verb/edn to all clients *except* sender-id. In this case, sender-id is the UUID from Sente."
   [ws-net sender-id verb edn]
   (timbre/info "Broadcasting " verb edn)
-  (let [clients        (:any @(:connected-cids ws-net))
+  (timbre/info "key " (keys ws-net))
+  (let [clients        (:any @(:connected-uids ws-net))
         all-but-sender (disj clients sender-id)]
     (doseq [id all-but-sender]
       (push ws-net id verb edn))))

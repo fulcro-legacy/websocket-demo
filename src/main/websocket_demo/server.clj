@@ -28,7 +28,6 @@
   Returns Ring middleware"
   [config websockets]
   (let [wrap-root (fn [handler] (fn [req]
-                                  (timbre/info "request " req)
                                   (handler (update req :uri #(if (= "/" %) "/index.html" %)))))]
     (-> (not-found-handler)
       (wn/wrap-api websockets)
@@ -54,7 +53,7 @@
     :websockets (wn/make-websockets (server/fulcro-parser) {:http-server-adapter (taoensso.sente.server-adapters.http-kit/get-sch-adapter)}) ; the actual Sente component
     :channel-listener (api/make-channel-listener)           ; A component that injects the channel server, and subscribes to traffic
     :config (server/new-config "config/prod.edn")           ; the config
-    :handler (component/using (map->Handler {}) [:config]))) ; the middleware (injectable into server)
+    :handler (component/using (map->Handler {}) [:config :websockets]))) ; the middleware (injectable into server)
 
 (defn build-server [] (system))
 
