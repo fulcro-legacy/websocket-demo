@@ -31,11 +31,11 @@
                                   (handler (update req :uri #(if (= "/" %) "/index.html" %)))))]
     (-> (not-found-handler)
       (wn/wrap-api websockets)
-      (wrap-resource "public")
-      (wrap-root)
       (keyword-params/wrap-keyword-params)
       (params/wrap-params)
+      (wrap-resource "public")
       (wrap-content-type)
+      (wrap-root)
       (wrap-not-modified)
       (wrap-gzip))))
 
