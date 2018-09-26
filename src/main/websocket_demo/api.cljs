@@ -12,10 +12,12 @@
   [ident-list ident]
   (into [] (remove #(= ident %)) ident-list))
 
-;;; PUSH NOTIFICATIONS. The websocket support defines this multimethod. We just hook into it. Incoming messages
-;; will have the format {:topic verb :msg edn-content}. The multimethod dispatches on topic.
+;;; PUSH NOTIFICATIONS. Incoming messages ;; will have the format {:topic verb :msg edn-content}.
+(defmulti push-received
+  "Multimethod to handle push events"
+  (fn [app msg] (:topic msg)))
 
-(defmethod wn/push-received :user-left-chat-room [{:keys [reconciler] :as app} {user-id :msg}]
+(defmethod push-received :user-left-chat-room [{:keys [reconciler] :as app} {user-id :msg}]
   (when-not (int? user-id)
     (log/error "Invalid user ID left the room!" user-id))
   (let [state      (prim/app-state reconciler)
@@ -25,7 +27,7 @@
                      (update :root/all-users remove-ident user-ident)
                      (update :USER/BY-ID dissoc user-id))))))
 
-(defmethod wn/push-received :user-entered-chat-room [{:keys [reconciler] :as app} {user :msg}]
+(defmethod push-received :user-entered-chat-room [{:keys [reconciler] :as app} {user :msg}]
   (when-not (s/valid? ::schema/user user)
     (log/error "Invalid user entered chat room" user))
   (let [state         (prim/app-state reconciler)

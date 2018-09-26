@@ -66,7 +66,7 @@
   "Process a new message from a client. We remap the incoming tempid to a real one that we generate on the server. Only
   the last 100 messages are kept in the room. (we purge 10 at 110). Clients keep as many as they've seen, if they want."
   [{:keys [db/id] :as message}]
-  (action [{:keys [ws-net cid] :as env}]
+  (action [{:keys [websockets cid] :as env}]
     (validate ::schema/database @db)
     (validate ::schema/chat-room-message message)
     (when-let [user-id (get @client-map cid)]
@@ -78,7 +78,7 @@
           (swap-db! update-in [::schema/chat-room ::schema/chat-room-messages] conj message)
           (when (< 110 (count (-> @db ::schema/chat-room ::schema/chat-room-message)))
             (swap-db! update-in [::schema/chat-room ::schema/chat-room-messages] (fn [messages] (vec (drop 10 messages)))))
-          (notify-others ws-net cid :add-chat-message message)
+          (notify-others websockets cid :add-chat-message message)
           (validate ::schema/database @db)
           {:tempids {id real-id}})
         (catch Exception e
@@ -92,7 +92,7 @@
   (for an automatic remap in state), and also remember it in our local client map of Sente websocket sessions.
   "
   [{:keys [db/id] :as user}]
-  (action [{:keys [cid ws-net]}]
+  (action [{:keys [cid websockets]}]
     (validate ::schema/database @db)
     (validate ::schema/user user)
     (swap-db! update ::schema/next-user-id inc)
@@ -101,7 +101,7 @@
       (timbre/info "User logged in" user)
       (swap! client-map assoc cid real-id)
       (swap-db! update ::schema/users conj user)
-      (notify-others ws-net cid :user-entered-chat-room user)
+      (notify-others websockets cid :user-entered-chat-room user)
       {:tempids {id real-id}})))
 
 (defn user-disconnected
@@ -113,21 +113,21 @@
     (notify-others ws-net sente-client-id :user-left-chat-room real-id)))
 
 ; The channel server gets the websocket events (add/drop). It can send those to any number of channel listeners. This
-; is ours. By making it depend on the channel-server, we can hook in when it starts.
-(defrecord ChannelListener [channel-server]
+; is ours. By making it depend on the websockets, we can hook in when it starts.
+(defrecord ChannelListener [websockets]
   WSListener
   (client-dropped [this ws-net cid] (user-disconnected ws-net cid))
   (client-added [this ws-net cid])
 
   component/Lifecycle
   (start [component]
-    (add-listener channel-server component)
+    (add-listener websockets component)
     component)
   (stop [component]
-    (remove-listener channel-server component)
+    (remove-listener websockets component)
     component))
 
 (defn make-channel-listener []
   (component/using
     (map->ChannelListener {})
-    [:channel-server]))
+    [:websockets]))
