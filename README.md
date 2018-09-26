@@ -49,57 +49,19 @@ interest. However, it is not supported to have more than one websocket in a clie
 
 ## Setting up the client
 
-To set up the client:
-
-- Create the networking object.
-- Add it to the network stack.
-- In started callback: install the push handlers.
-
-See `client.cljs`
-
-The default route for establishing websockets is `/chsk`. The internals use Sente to provide the websockets.
+See `client.cljs`.
 
 ## Adding Server Support
 
-The channel server is a component that wraps Sente. It allows for channel listeners to register to listen for traffic.
-We do this in a ChannelListener component (see api.clj)
-
-Note that the channel server is injected into the component and the `start`/`stop` methods use it to add/remove
-the component as a listener of connect/drop events.
-
-See `server.clj` and `api.clj`
+See `server.clj` and `api.clj`.
 
 ## Pushing Messages
 
-The parsing environment on the server will now have:
-
-- `cid` The Sente client ID (a string UUID)
-- `ws-net` The websockets networking support (which has a `push` method)
-
-it is this push method that is most interesting to us. It allows the server to push messages to a specific user
-by client id (cid).
-
-```
-(fulcro.websockets.protocols/push ws-net cid VERB EDN)
-```
-
-The `VERB` and `EDN` parameters are what will arrive on the client as `:topic` and `:msg` in
-a multimethod.
-
-See `api.clj`. Specifically trace through `notify-others`. Be sure to read the comments around the `client-map`.
+See `api.clj`. Specifically trace through `notify-others`.
 
 ## Handling Push Messages
 
-Fulcro treats incoming push messages much like mutations, though on a different multimethod
-`fulcro.websockets.networking/push-received`. The parameters you'll receive are the fulcro `app` and the
-`message` (which contains the keywords `:topic` with the verb from the server and `:msg` with the EDN. The `:topic`
-is used as the dispatch key for the multimethod, so you rarely need to read it unless you override dispatch multiple topics to
-the some other common function).
-
-So, a call on the server to `(push ws-net client-id :hello {:name \"Jo\"})` will result in a call on the client
-of `(push-received fulcro-app {:topic :hello :msg {:name \"Jo\"}})`.
-
-See `api.cljs`.
+See `push-received` in `api.cljs`.
 
 ## Other Thing In This Demo
 
@@ -111,7 +73,7 @@ This demo is meant to be a bit of a show-piece for several things in Fulcro:
 4. React refs for input focus.
 5. Co-locating CSS on components.
 6. Using some of the bootstrap3 helpers.
-7. CTRL-F will pop open @wilkerlucio new inspector!
+7. If you install the Fulcro Inspect chrome plugin, you can use it in Devtools to see networking, database, and more.
 8. Using Clojure Spec to protect your APIs from accidents…and inform you when you screw up.
 9. Associating a “login” with a websocket establish client.
 
